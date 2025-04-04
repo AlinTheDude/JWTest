@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JWT App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .container {
+      border: 1px solid #ddd;
+      padding: 20px;
+      border-radius: 5px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    button {
+      padding: 10px 15px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .hidden {
+      display: none;
+    }
+    #profile, #adminPanel {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #f9f9f9;
+    }
+  </style>
+</head>
+<body>
+  <h1>JWT Authentication Demo</h1>
+  
+  <div id="loginForm" class="container">
+    <h2>Login</h2>
+    <div class="form-group">
+      <label for="username">Username:</label>
+      <input type="text" id="username" placeholder="Username">
+    </div>
+    <div class="form-group">
+      <label for="password">Password:</label>
+      <input type="password" id="password" placeholder="Password">
+    </div>
+    <button onclick="login()">Accedi</button>
+    <p id="loginMessage"></p>
+  </div>
+  
+  <div id="userInfo" class="hidden">
+    <h2>Benvenuto <span id="usernameDisplay"></span>!</h2>
+    <button onclick="logout()">Logout</button>
+    
+    <div id="profile" class="container">
+      <h3>Il tuo profilo</h3>
+      <div id="profileData"></div>
+      <button onclick="loadProfile()">Carica profilo</button>
+    </div>
+    
+    <div id="adminPanel" class="container hidden">
+      <h3>Pannello Amministratore</h3>
+      <div id="adminData"></div>
+      <button onclick="loadAdminData()">Carica dati admin</button>
+    </div>
+  </div>
+  
+  <script>
+    // Controlla se l'utente è già loggato
+    document.addEventListener('DOMContentLoaded', () => {
+      const token = localStorage.getItem('token');
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      
+      if (token && user.username) {
+        showUserInfo(user);
+      }
+    });
+    
+    // Funzione di login
+    async function login() {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ username, password })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          // Salva il token e i dati utente
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          
+          // Mostra la sezione utente
+          showUserInfo(data.user);
+        } else {
+          document.getElementById('loginMessage').textContent = data.message;
+        }
+      } catch (error) {
+        console.error('Errore durante il login:', error);
+        document.getElementById('loginMessage').textContent = 'Errore di connessione';
+      }
+    }
+    
+    // Mostra le informazioni dell'utente
+    function showUserInfo(user) {
+        document.getElementById('loginForm').classList.add('hidden');
+      document.getElementById('userInfo').classList.remove('hidden');
+      document.getElementById('usernameDisplay').textContent = user.username;
+      
+      // Mostra il pannello admin solo se l'utente è admin
+      if (user.role === 'admin') {
+        document.getElementById('adminPanel').classList.remove('hidden');
+      }
+    }
+    
+    // Carica i dati del profilo
+    async function loadProfile() {
+      try {
+        const response = await fetch('/api/profile', {
+          headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('token')
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          let html = `<p>ID: ${data.user.id}</p>`;
+          html += `<p>Username: ${data.user.username}</p>`;
+          html += `<p>Ruolo: ${data.user.role}</p>`;
+          
+          document.getElementById('profileData').innerHTML = html;
+        } else {
+          document.getElementById('profileData').innerHTML = `<p class="error">${data.message}</p>`;
+        }
+      } catch (error) {
+        console.error('Errore durante il caricamento del profilo:', error);
+        document.getElementById('profileData').innerHTML = '<p class="error">Errore di connessione</p>';
+      }
+    }
+    
+    // Carica i dati admin
+    async function loadAdminData() {
+      try {
+        const response = await fetch('/api/admin', {
+          headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('token')
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          let html = `<p>Utenti totali: ${data.data.stats.users}</p>`;
+          html += `<p>Utenti attivi: ${data.data.stats.activeUsers}</p>`;
+          
+          document.getElementById('adminData').innerHTML = html;
+        } else {
+          document.getElementById('adminData').innerHTML = `<p class="error">${data.message}</p>`;
+        }
+      } catch (error) {
+        console.error('Errore durante il caricamento dei dati admin:', error);
+        document.getElementById('adminData').innerHTML = '<p class="error">Errore di connessione</p>';
+      }
+    }
+    
+    // Logout
+    function logout() {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      document.getElementById('userInfo').classList.add('hidden');
+      document.getElementById('loginForm').classList.remove('hidden');
+      document.getElementById('loginMessage').textContent = '';
+      document.getElementById('username').value = '';
+      document.getElementById('password').value = '';
+    }
+  </script>
+</body>
+</html>
